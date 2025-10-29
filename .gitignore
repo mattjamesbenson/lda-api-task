@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 *.log
 .DS_Store
 .env
@@ -54,4 +53,3 @@ Homestead.json
 .env.production
 .phpactor.json
 auth.json
->>>>>>> 38b6ffaeeb5ef3aad48a002c6e96887473d609d2
