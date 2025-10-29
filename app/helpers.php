@@ -5,7 +5,8 @@
 if (!function_exists('haversineDistance')) {
     function haversineDistance($lat1, $lon1, $lat2, $lon2): float
     {
-        $earthRadius = 6371; // km
+        // In km
+        $earthRadius = 6371;
         return $earthRadius * acos(
             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
             cos(deg2rad($lon2) - deg2rad($lon1)) +

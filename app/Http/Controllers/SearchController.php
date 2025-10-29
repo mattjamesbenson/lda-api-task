@@ -10,6 +10,7 @@ class SearchController extends Controller
 {
     public function search(Request $request)
     {
+        // Validate incoming values in request
         $request->validate([
             'postcode' => 'required|string',
             'radius' => 'required|numeric|min:1|max:100',
@@ -18,6 +19,7 @@ class SearchController extends Controller
         // Convert postcode to latitude/longitude using postcodes.io
         $geo = Http::get("https://api.postcodes.io/postcodes/" . urlencode($request->postcode));
 
+        // Error handling for non-existent postcodes
         if (!$geo->successful() || !$geo->json()['result']) {
             return response()->json(['error' => 'Invalid postcode'], 400);
         }
@@ -28,6 +30,8 @@ class SearchController extends Controller
         $radius = $request->radius;
 
         $results = DB::table('vacancies')->get()->filter(function($v) use ($lat, $lon, $radius) {
+            // Utilise helper funciton to filter vacancies to only those within 
+            // the specified radius from the given location using the Haversine formula
             return haversineDistance($lat, $lon, $v->latitude, $v->longitude) <= $radius;
         });
 

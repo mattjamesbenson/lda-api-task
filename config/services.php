@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'apprenticeships' => [
+        'key' => env('APPRENTICESHIP_API_KEY'),
+        'url' => env('APPRENTICESHIP_API_URL'),
+        'ukprn' => env('APPRENTICESHIP_UKPRN'),
+    ],
 ];
