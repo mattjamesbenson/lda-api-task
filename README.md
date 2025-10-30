@@ -27,6 +27,7 @@ This has been specifically built for Lda.
 ### 1. Clone the repository
 
 git clone https://github.com/mattjamesbenson/lda-api-task
+
 cd lda-api-task
 
 ### 2. Install dependencies
@@ -40,7 +41,9 @@ composer install
 Update the local database and API credentials. Please utilise your own API key.
 
 APPRENTICESHIP_UKPRN=UKPRN_HERE
+
 APPRENTICESHIP_API_KEY=YOUR_KEY_HERE
+
 APPRENTICESHIP_API_URL=https://api.apprenticeships.education.gov.uk
 
 ### 4. Generate application key
@@ -56,11 +59,15 @@ php artisan migrate
 php artisan serve
 
 - OR for Valet:
+
   valet link
+
   valet secure
 
 - OR for Herd:
+
   herd link
+  
   herd secure
 
 ### 7. Run unit tests
