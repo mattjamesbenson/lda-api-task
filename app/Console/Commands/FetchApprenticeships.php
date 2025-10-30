@@ -14,50 +14,55 @@ class FetchApprenticeships extends Command
 
     public function handle(ApprenticeshipApiService $service)
     {
-        $result = $service->fetchAndStore();
-        $this->info("Imported {$result['new']} new, updated {$result['updated']}, total {$result['total_in_db']} vacancies stored in the database.");
-
-        // Print duplicates if any
-        if (!empty($result['duplicates'])) {
-            $this->warn("Duplicates detected: {$result['duplicates']}");
-            if (!empty($result['duplicate_refs'])) {
-                $this->line("Duplicate references: " . implode(', ', $result['duplicate_refs']));
-            }
-        }
-        
         $location = $this->argument('location');
         $radius = (float)$this->option('radius');
 
-        if (!$location) {
-            $this->info('No postcode provided, ignoring the proximity filter.');
-            return Command::SUCCESS;
+        // Convert postcode to longitude and latitude if provided
+        $lat = $lon = null;
+
+        if ($location) {
+            $geo = Http::get("https://api.postcodes.io/postcodes/" . urlencode($location));
+
+            if (!$geo->successful() || !$geo->json('result')) {
+                $this->error("Invalid postcode: {$location}");
+                return Command::FAILURE;
+            }
+
+            $lat = $geo->json('result.latitude');
+            $lon = $geo->json('result.longitude');
         }
 
-        // Convert postcode to longitude and latitude
-        $geo = Http::get("https://api.postcodes.io/postcodes/" . urlencode($location));
+        $imported = $service->fetchAndStore();
 
-        if (!$geo->successful() || !$geo->json('result')) {
-            $this->error("Invalid postcode: {$location}");
-            return Command::FAILURE;
+        // If a postcode is provided, filter retrieved vacancies from the database by radius
+        if ($location && $lat !== null && $lon !== null) {
+            $count = 0;
+
+            // Utilise ->cursor() instead of ->get() for potential future large scale database,
+            // avoids storing large numbers of vacancies in memory
+            foreach (DB::table('vacancies')->cursor() as $v) { 
+                if (!$v->latitude || !$v->longitude) continue;
+
+                if (haversineDistance($lat, $lon, $v->latitude, $v->longitude) <= $radius) {
+                    $count++;
+                    $this->line("- {$v->title} ({$v->employer_name}) [{$v->postcode}]");
+                }
+            }
+
+            $this->info("Found {$count} vacancies within {$radius} km of {$location}");
+        } else {
+            $this->info('No postcode provided, skipping proximity filter.');
         }
 
-        $lat = $geo->json('result.latitude');
-        $lon = $geo->json('result.longitude');
+        // Print summary of import
+        $this->info("Imported {$imported['new']} new, updated {$imported['updated']}, total {$imported['total_in_db']} vacancies stored in the database.");
 
-        $vacancies = DB::table('vacancies')->get();
-        
-        // Filter results from database
-        $results = $vacancies->filter(function ($v) use ($lat, $lon, $radius) {
-            if (!$v->latitude || !$v->longitude) return false;
-            return haversineDistance($lat, $lon, $v->latitude, $v->longitude) <= $radius;
-        });
-
-        // Log results in terminal
-        $count = $results->count();
-        $this->info("Found {$count} vacancies within {$radius} km of {$location}" . ($count > 0 ? ':' : ''));
-
-        foreach ($results as $v) {
-            $this->line("- {$v->title} ({$v->employer_name}) [{$v->postcode}]");
+        // Print duplicates (if any)
+        if (!empty($imported['duplicates'])) {
+            $this->warn("Duplicates detected: {$imported['duplicates']}");
+            if (!empty($imported['duplicate_refs'])) {
+                $this->line("Duplicate references: " . implode(', ', $imported['duplicate_refs']));
+            }
         }
 
         return Command::SUCCESS;
