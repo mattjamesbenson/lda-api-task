@@ -38,7 +38,8 @@ composer install
 
 ### 3. Configure .env
 
-Update the local database and API credentials. Please utilise your own API key.
+Update the local database and API credentials in a newly created .env (use .env.example for reference). 
+Please utilise your own API key.
 
 APPRENTICESHIP_UKPRN=UKPRN_HERE
 
@@ -67,7 +68,7 @@ php artisan serve
 - OR for Herd:
 
   herd link
-  
+
   herd secure
 
 ### 7. Run unit tests
