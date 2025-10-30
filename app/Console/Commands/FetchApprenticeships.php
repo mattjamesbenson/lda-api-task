@@ -14,7 +14,6 @@ class FetchApprenticeships extends Command
 
     public function handle(ApprenticeshipApiService $service)
     {
-        
         $result = $service->fetchAndStore();
         $this->info("Imported {$result['new']} new, updated {$result['updated']}, total {$result['total_in_db']} vacancies stored in the database.");
 
