@@ -61,17 +61,36 @@ class ApprenticeshipApiService
 
         $new = 0;
         $updated = 0;
+        $duplicates = 0;
+        $seenRefs = [];
+        $duplicateRefs = [];
 
-        // Loop all vacancies in the response and extract the data to create or update  
-        // Try catch error handling to report any imports that have failed
+        // Loop all vacancies and create/update
         foreach ($json['vacancies'] as $item) {
             try {
+                $ref = $item['vacancyReference'] ?? null;
+
+                // Handle items where no reference found
+                if (!$ref) {
+                    $duplicates++;
+                    continue;
+                }
+
+                // Track duplicates in API payload only
+                if (in_array($ref, $seenRefs)) {
+                    $duplicates++;
+                    $duplicateRefs[] = $ref;
+                    continue;
+                }
+
+                $seenRefs[] = $ref;
+
                 $postcode = $item['addresses'][0]['postcode'] ?? null;
                 $lat = $item['addresses'][0]['latitude'] ?? null;
                 $lon = $item['addresses'][0]['longitude'] ?? null;
 
                 $vacancy = Vacancy::updateOrCreate(
-                    ['vacancy_reference' => $item['vacancyReference'] ?? ''],
+                    ['vacancy_reference' => $ref],
                     [
                         'title' => $item['title'] ?? '',
                         'employer_name' => $item['employerName'] ?? '',
@@ -81,16 +100,30 @@ class ApprenticeshipApiService
                         'description' => $item['description'] ?? '',
                     ]
                 );
-                
-                // Handle updated/new logging
+
+                $vacancy->wasRecentlyCreated ? $new++ : $updated++;
             } catch (\Throwable $e) {
                 Log::error('Failed to import vacancy', ['vacancy' => $item, 'error' => $e->getMessage()]);
             }
         }
 
-        // Log successful import
-        Log::info('Import finished', ['new' => $new, 'updated' => $updated]);
+        $totalInDb = Vacancy::count();
 
-        return ['new' => $new, 'updated' => $updated];
+        // Log successful import
+        Log::info('Import finished', [
+            'new' => $new,
+            'updated' => $updated,
+            'duplicates' => $duplicates,
+            'duplicate_refs' => $duplicateRefs,
+            'total_in_db' => $totalInDb
+        ]);
+
+        return [
+            'new' => $new,
+            'updated' => $updated,
+            'duplicates' => $duplicates,
+            'duplicate_refs' => $duplicateRefs,
+            'total_in_db' => $totalInDb
+        ];
     }
 }

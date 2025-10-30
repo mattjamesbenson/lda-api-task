@@ -4,36 +4,33 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
+use App\Services\PostcodeLookupService;
 
 class SearchController extends Controller
 {
-    public function search(Request $request)
+    public function search(Request $request, PostcodeLookupService $postcodeService)
     {
-        // Validate incoming values in request
         $request->validate([
             'postcode' => 'required|string',
             'radius' => 'required|numeric|min:1|max:100',
         ]);
 
-        // Convert postcode to latitude/longitude using postcodes.io
-        $geo = Http::get("https://api.postcodes.io/postcodes/" . urlencode($request->postcode));
-
-        // Error handling for non-existent postcodes
-        if (!$geo->successful() || !$geo->json()['result']) {
-            return response()->json(['error' => 'Invalid postcode'], 400);
-        }
-
-        $lat = $geo->json()['result']['latitude'];
-        $lon = $geo->json()['result']['longitude'];
-
+        $coords = $postcodeService->lookup($request->postcode);
+        $lat = $coords['latitude'];
+        $lon = $coords['longitude'];
         $radius = $request->radius;
 
-        $results = DB::table('vacancies')->get()->filter(function($v) use ($lat, $lon, $radius) {
-            // Utilise helper funciton to filter vacancies to only those within 
-            // the specified radius from the given location using the Haversine formula
-            return haversineDistance($lat, $lon, $v->latitude, $v->longitude) <= $radius;
-        });
+        $results = collect();
+
+        // Select only necessary columns from the database and stream results with cursor() to avoid memory overload
+        // when the vacancies table contains hundreds of thousands of rows (scaled for large datasets)
+        foreach (DB::table('vacancies')->select('id', 'title', 'employer_name', 'postcode', 'latitude', 'longitude')->cursor() as $v) {
+            if ($v->latitude !== null && $v->longitude !== null &&
+                haversineDistance($lat, $lon, $v->latitude, $v->longitude) <= $radius
+            ) {
+                $results->push($v);
+            }
+        }
 
         return response()->json($results);
     }
